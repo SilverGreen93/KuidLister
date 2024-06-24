@@ -100,7 +100,7 @@ Public Class frmMain
     End Sub
 
     Private Sub LinkLabel1_LinkClicked(sender As Object, e As LinkLabelLinkClickedEventArgs) Handles LinkLabel1.LinkClicked
-        Process.Start("http://vvmm.freeforums.org/")
+        Process.Start("https://github.com/SilverGreen93/KuidLister")
     End Sub
 
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load

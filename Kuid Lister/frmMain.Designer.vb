@@ -77,7 +77,7 @@ Partial Class frmMain
         Me.Label1.Location = New System.Drawing.Point(13, 9)
         Me.Label1.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
         Me.Label1.Name = "Label1"
-        Me.Label1.Size = New System.Drawing.Size(315, 17)
+        Me.Label1.Size = New System.Drawing.Size(295, 16)
         Me.Label1.TabIndex = 3
         Me.Label1.Text = "Paste KUIDs copied from Content Manager here:"
         '
@@ -87,7 +87,7 @@ Partial Class frmMain
         Me.Label2.Location = New System.Drawing.Point(13, 397)
         Me.Label2.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
         Me.Label2.Name = "Label2"
-        Me.Label2.Size = New System.Drawing.Size(53, 17)
+        Me.Label2.Size = New System.Drawing.Size(51, 16)
         Me.Label2.TabIndex = 7
         Me.Label2.Text = "Ready."
         '
@@ -107,7 +107,7 @@ Partial Class frmMain
         Me.CheckBox1.Location = New System.Drawing.Point(195, 260)
         Me.CheckBox1.Margin = New System.Windows.Forms.Padding(4)
         Me.CheckBox1.Name = "CheckBox1"
-        Me.CheckBox1.Size = New System.Drawing.Size(225, 21)
+        Me.CheckBox1.Size = New System.Drawing.Size(210, 20)
         Me.CheckBox1.TabIndex = 26
         Me.CheckBox1.Text = "Generate asset versions up to:"
         Me.CheckBox1.UseVisualStyleBackColor = True
@@ -132,21 +132,21 @@ Partial Class frmMain
         'LinkLabel1
         '
         Me.LinkLabel1.AutoSize = True
-        Me.LinkLabel1.Location = New System.Drawing.Point(145, 479)
+        Me.LinkLabel1.Location = New System.Drawing.Point(103, 478)
         Me.LinkLabel1.Name = "LinkLabel1"
-        Me.LinkLabel1.Size = New System.Drawing.Size(181, 17)
+        Me.LinkLabel1.Size = New System.Drawing.Size(262, 16)
         Me.LinkLabel1.TabIndex = 29
         Me.LinkLabel1.TabStop = True
-        Me.LinkLabel1.Text = "http://vvmm.freeforums.org/"
+        Me.LinkLabel1.Text = "https://github.com/SilverGreen93/KuidLister"
         '
         'Label3
         '
         Me.Label3.AutoSize = True
-        Me.Label3.Location = New System.Drawing.Point(175, 462)
+        Me.Label3.Location = New System.Drawing.Point(159, 462)
         Me.Label3.Name = "Label3"
-        Me.Label3.Size = New System.Drawing.Size(120, 17)
+        Me.Label3.Size = New System.Drawing.Size(159, 16)
         Me.Label3.TabIndex = 28
-        Me.Label3.Text = "by vvmm (c) 2017"
+        Me.Label3.Text = "by SilverGreen93 (c) 2024"
         '
         'Button2
         '
@@ -157,7 +157,7 @@ Partial Class frmMain
         Me.Button2.Text = "Clear"
         Me.Button2.UseVisualStyleBackColor = True
         '
-        'Form1
+        'frmMain
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(8.0!, 16.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
@@ -178,9 +178,9 @@ Partial Class frmMain
         Me.Icon = CType(resources.GetObject("$this.Icon"), System.Drawing.Icon)
         Me.Margin = New System.Windows.Forms.Padding(4)
         Me.MaximizeBox = False
-        Me.Name = "Form1"
+        Me.Name = "frmMain"
         Me.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen
-        Me.Text = "Kuid Lister v1.12"
+        Me.Text = "Kuid Lister v1.13"
         Me.ResumeLayout(False)
         Me.PerformLayout()
 

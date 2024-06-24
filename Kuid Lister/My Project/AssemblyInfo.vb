@@ -10,9 +10,9 @@ Imports System.Runtime.InteropServices
 
 <Assembly: AssemblyTitle("Kuid Lister")>
 <Assembly: AssemblyDescription("Utility for making Trainz kuid lists.")>
-<Assembly: AssemblyCompany("vvmm")>
+<Assembly: AssemblyCompany("SilverGreen93")>
 <Assembly: AssemblyProduct("Kuid Lister")>
-<Assembly: AssemblyCopyright("Copyright © vvmm 2017")>
+<Assembly: AssemblyCopyright("Copyright © SilverGreen93 2024")>
 <Assembly: AssemblyTrademark("")> 
 
 <Assembly: ComVisible(False)>
@@ -31,5 +31,5 @@ Imports System.Runtime.InteropServices
 ' by using the '*' as shown below:
 ' <Assembly: AssemblyVersion("1.0.*")> 
 
-<Assembly: AssemblyVersion("1.12.0.0")>
-<Assembly: AssemblyFileVersion("1.12.0.0")>
+<Assembly: AssemblyVersion("1.13.0.0")>
+<Assembly: AssemblyFileVersion("1.13.0.0")>
