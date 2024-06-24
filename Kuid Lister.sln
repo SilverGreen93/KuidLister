@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "Kuid Lister", "Kuid Lister\Kuid Lister.vbproj", "{8D3BA986-8BF3-4FB0-8B76-7CAA2A3AF8CD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8D3BA986-8BF3-4FB0-8B76-7CAA2A3AF8CD}.Debug|x86.ActiveCfg = Debug|x86
+		{8D3BA986-8BF3-4FB0-8B76-7CAA2A3AF8CD}.Debug|x86.Build.0 = Debug|x86
+		{8D3BA986-8BF3-4FB0-8B76-7CAA2A3AF8CD}.Release|x86.ActiveCfg = Release|x86
+		{8D3BA986-8BF3-4FB0-8B76-7CAA2A3AF8CD}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
