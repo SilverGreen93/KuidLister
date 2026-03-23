@@ -4,6 +4,8 @@ Utility for generating lists of Trainz KUIDs.
 
 ## Getting Started
 
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/SilverGreen93/KuidLister)](https://github.com/SilverGreen93/KuidLister/releases/latest) [![Downloads (Latest Release)](https://img.shields.io/github/downloads/SilverGreen93/KuidLister/latest/total?label=latest%20release%20downloads)](https://github.com/SilverGreen93/KuidLister/releases/latest) ![GitHub all releases](https://img.shields.io/github/downloads/SilverGreen93/KuidLister/total?label=total%20downloads)
+
 You can download a free copy of the code and build it yourself or download the latest Windows binary from the Releases tab.
 
 ## Installation
