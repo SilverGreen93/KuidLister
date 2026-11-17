@@ -21,7 +21,7 @@ import webbrowser
 from pathlib import Path
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon, QIntValidator
+from PyQt6.QtGui import QIcon, QIntValidator, QValidator
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -47,12 +47,34 @@ from .kuids import (
     split_kuid,
 )
 
-__all__ = ["KuidListerWindow", "run_gui"]
+__all__ = ["KuidListerWindow", "VersionValidator", "run_gui"]
 
 APP_TITLE = f"Kuid Lister {__version__}"
 GITHUB_URL = "https://github.com/SilverGreen93/KuidLister"
 ICON_FILE = "kuidlister.ico"
 DEFAULT_UPTO = 10
+
+
+class VersionValidator(QIntValidator):
+    """A 0..MAX_VERSION field that never ends up holding a bad number.
+
+    QIntValidator alone is not enough: it calls "128" and "999" *intermediate*
+    (a longer edit of them could still be in range), so the widget happily keeps
+    such a value and a List & Copy would run with a limit above 127.  Anything
+    that is not strictly in range is refused here instead, which is what the
+    original's TextBox3 TextChanged handler did when it popped up its warning.
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(0, MAX_VERSION, parent)
+
+    def validate(self, input_str: str, input_pos: int):  # type: ignore[override]
+        state, text, position = super().validate(input_str, input_pos)
+        if state == QValidator.State.Intermediate:
+            return QValidator.State.Invalid, text, position
+        if state == QValidator.State.Acceptable and not 0 <= int(text) <= MAX_VERSION:
+            return QValidator.State.Invalid, text, position
+        return state, text, position
 
 
 def _window_icon() -> QIcon | None:
@@ -109,8 +131,9 @@ class KuidListerWindow(QWidget):
         self.chk_versions = QCheckBox("Generate asset versions up to:")
         self.edit_upto = QLineEdit(str(DEFAULT_UPTO))
         # the original validated on every keystroke and complained; a validator
-        # simply refuses anything outside the range instead
-        self.edit_upto.setValidator(QIntValidator(0, MAX_VERSION, self))
+        # simply refuses anything outside the range instead -- including the
+        # "128"/"999" QIntValidator would have let stand as intermediate
+        self.edit_upto.setValidator(VersionValidator(self))
         self.edit_upto.setFixedWidth(48)
         self.chk_versions.toggled.connect(self.edit_upto.setEnabled)
         self.edit_upto.setEnabled(self.chk_versions.isChecked())

@@ -6,10 +6,10 @@ optionally replacing each kuid by all of its asset versions from 0 up to a
 chosen maximum.
 
 The original ran over the whole text twice (once for the matches, once to
-strip duplicates) and drove its progress bar from three passes;
-:func:`extract_kuids` and :func:`dedupe` keep those two stages apart so the GUI
-can report progress between them, and each is a single ordered sweep instead of
-the original's quadratic duplicate search.
+strip duplicates) and drove a progress bar with three passes; :func:`extract_kuids`
+and :func:`list_kuids` keep those two stages apart so the GUI can report
+progress between them, and each pass is a single ordered sweep instead of the
+original's quadratic duplicate search.
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ __all__ = [
     "KUID_RE",
     "MAX_VERSION",
     "extract_kuids",
-    "split_kuid",
     "dedupe",
     "format_kuid",
     "expand_versions",
@@ -28,9 +27,9 @@ __all__ = [
     "join",
 ]
 
-# The same pattern as the VB.NET code: kuid or kuid2, an optional negative sign
-# on each of the two numbers and an optional version number.  "KUID" in upper
-# case matched too, so the pattern is case insensitive; the original's
+# The same pattern as the VB.NET code: kuid or kuid2, an optional negative
+# sign on each of the two numbers and an optional version number.  "KUID" in
+# upper case matched too, so the pattern is case insensitive; the original's
 # "(kuid|KUID)[2]?" also let "KUid2" through by accident.
 KUID_RE = re.compile(r"kuid2?:[-]?\d*:[-]?\d*(?::\d*)?", re.IGNORECASE)
 
@@ -49,6 +48,39 @@ def extract_kuids(text: str) -> list[str]:
     return [match.group(0) for match in KUID_RE.finditer(text)]
 
 
+def dedupe(kuids: list[str]) -> list[str]:
+    """The kuids with repeats removed, keeping the first of each.
+
+    Two mentions are the same asset when their author and content id match --
+    the VB.NET code split every kuid and compared those two parts, so a
+    ``kuid2:A:C:6`` in the text folded onto an earlier ``kuid:A:C`` and its
+    version was dropped with it.  Later copies are skipped rather than blanked
+    out as they were there; the list that comes out is the same.
+    """
+
+    unique: dict[tuple[int, int], str] = {}
+    for token in kuids:
+        unique.setdefault(split_kuid(token), token)
+    return list(unique.values())
+
+
+def format_kuid(author: int, content_id: int, version: int | None = None) -> str:
+    """One kuid as it appears in the output list, brackets included.
+
+    A version of zero is the first version of an asset and has no meaning of
+    its own, so it is written as the plain ``<kuid:author:id>``; only versions
+    from one up become ``<kuid2:author:id:version>``.  Trainz accepts either
+    spelling for version zero, and the bare form is what a kuid copy normally
+    shows.
+
+    The VB.NET code had no such rule: it emitted ``<kuid2:author:id:0>`` for
+    version zero, which is why this part of the output differs from 1.13.
+    """
+    if not version:
+        return f"<kuid:{author}:{content_id}>"
+    return f"<kuid2:{author}:{content_id}:{version}>"
+
+
 def split_kuid(token: str) -> tuple[int, int]:
     """The author and content id of a kuid token as integers.
 
@@ -61,35 +93,13 @@ def split_kuid(token: str) -> tuple[int, int]:
     return int(parts[1]), int(parts[2])
 
 
-def dedupe(kuids: list[str]) -> list[str]:
-    """The kuids with repeats removed, keeping the first of each.
-
-    Two mentions are the same asset when their author and content id match:
-    the VB.NET code split every kuid and compared only those two parts, so a
-    ``kuid2:A:C:6`` in the text folded onto an earlier ``kuid:A:C`` and its
-    version went with it.  Later copies are skipped here rather than blanked
-    out as they were there; the list that comes out is the same.
-    """
-    unique: dict[tuple[int, int], str] = {}
-    for token in kuids:
-        unique.setdefault(split_kuid(token), token)
-    return list(unique.values())
-
-
-def format_kuid(author: int, content_id: int, version: int | None = None) -> str:
-    """One kuid as it appears in the output list, brackets included.
-
-    With a version it is a kuid2 token, without one a plain kuid.  The VB.NET
-    code rebuilt every kuid this way after splitting it, which quietly dropped
-    any version already written in the source text.
-    """
-    if version is None:
-        return f"<kuid:{author}:{content_id}>"
-    return f"<kuid2:{author}:{content_id}:{version}>"
-
-
 def expand_versions(kuids: list[str], upto: int) -> list[str]:
     """Each kuid's asset versions from 0 to ``upto``, as formatted tokens.
+
+    The assets are consecutive, so listing 0..n means n + 1 tokens with no
+    repeats however many spellings of the same author/id pair the paste held
+    (:func:`dedupe` folds them onto one first).  Version zero comes back as the
+    plain kuid, see :func:`format_kuid`.
 
     A kuid whose author is negative (the built-in content Trainz numbers below
     zero) has no versions of its own, so it is listed once as a plain kuid --
@@ -112,8 +122,10 @@ def list_kuids(text: str, upto: int | None = None) -> list[str]:
 
     Returns the quoted kuid tokens.  With ``upto`` set, each kuid is replaced
     by its versions from 0 to that number; with ``None`` (the checkbox off)
-    every unique kuid is rebuilt as a plain kuid, dropping any version that was
-    written in the input, just as re-joining the split pieces did in VB.NET.
+    every unique kuid is rebuilt as a plain kuid, versions and all, just as the
+    VB.NET code re-joined the pieces it had split.  Either way an author/id pair
+    is listed once: repeats of the same spelling, and other spellings of the
+    same pair, never add a second copy or a second run of versions.
     """
     unique = dedupe(extract_kuids(text))
     if upto is None:
@@ -124,7 +136,7 @@ def list_kuids(text: str, upto: int | None = None) -> list[str]:
 def join(tokens: list[str]) -> str:
     """The tokens separated by commas, no trailing comma.
 
-    The VB.NET code appended a comma after every kuid and then cut the last one
-    off the finished text.
+    The VB.NET code appended a comma after every kuid and then cut the last
+    one off the finished text.
     """
     return ",".join(tokens)
