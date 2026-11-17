@@ -140,7 +140,10 @@ def test_a_limit_that_slips_through_is_reported_and_stops_the_list(
 def test_the_button_does_nothing_when_the_limit_was_refused(window, monkeypatch):
     """No output and no clipboard write after a refused limit."""
     monkeypatch.setattr("kuidlister.gui.QMessageBox.warning", lambda *a: None)
-    QApplication.clipboard().setText("untouched")
+    copied: list[str] = []
+    monkeypatch.setattr(
+        QApplication.clipboard(), "setText", lambda text: copied.append(text)
+    )
     window.input.setPlainText("<kuid:1234:12345>")
     window.chk_versions.setChecked(True)
     window.edit_upto.setText("999999999999999999999")  # past the validator's int
@@ -149,21 +152,28 @@ def test_the_button_does_nothing_when_the_limit_was_refused(window, monkeypatch)
 
     assert window.output.toPlainText() == ""
     assert window.status.text() == "Ready."
-    assert QApplication.clipboard().text() == "untouched"
+    assert copied == []  # nothing was ever handed to the clipboard
 
 
 # ---------------------------------------------------------------------------
 # the button with a valid limit
 # ---------------------------------------------------------------------------
 
-def test_the_button_lists_and_copies_the_result(window):
-    QApplication.clipboard().setText("")
+def test_the_button_lists_and_copies_the_result(window, monkeypatch):
+    # The real system clipboard is shared with the rest of the desktop and is
+    # flaky to read back inside a test run (Qt commits it from the event loop,
+    # and pytest holds the Windows clipboard itself), so capture what the app
+    # hands to the clipboard instead of round-tripping through the OS.
+    copied: list[str] = []
+    monkeypatch.setattr(
+        QApplication.clipboard(), "setText", lambda text: copied.append(text)
+    )
     window.input.setPlainText("<kuid:1234:12345> again <kuid:1234:12345>")
 
     window.on_list()
 
     assert window.output.toPlainText() == "<kuid:1234:12345>"
-    assert QApplication.clipboard().text() == "<kuid:1234:12345>"
+    assert copied == ["<kuid:1234:12345>"]
     assert window.status.text().startswith("Listed 1 KUIDs in")
 
 
