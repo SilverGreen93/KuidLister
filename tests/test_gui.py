@@ -191,7 +191,8 @@ def test_negative_kuids_survive_the_button(window):
     window.on_list()
 
     assert window.output.toPlainText() == (
-        "<kuid:-1234:-12345>,<kuid:-1234:12345>,<kuid:1234:-12345>"
+        "<kuid:-1234:-12345>,<kuid:-1234:12345>,"
+        "<kuid:1234:-12345>,<kuid2:1234:-12345:2>"
     )
 
 

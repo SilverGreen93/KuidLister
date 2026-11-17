@@ -42,7 +42,7 @@ from .kuids import (
     dedupe,
     expand_versions,
     extract_kuids,
-    format_kuid,
+    format_token,
     join,
     split_kuid,
 )
@@ -201,17 +201,16 @@ class KuidListerWindow(QWidget):
             QApplication.processEvents()
 
             # stage 2: rebuild each kuid, with its versions when asked for.
-            # expand_versions rewrites the token as a plain kuid if its author
-            # is negative, which drops any version already written in the text
-            # -- exactly what splitting and re-joining did in the original.
-            tokens = [
-                format_kuid(*split_kuid(kuid))
-                for kuid in unique
-            ] if upto is None else [
-                token
-                for kuid in unique
-                for token in expand_versions([kuid], upto)
-            ]
+            # list_kuids is the single place that decides how a token is shown
+            # (version kept without upto, one version run per pair with it), so
+            # the GUI and the CLI can never drift apart.
+            if upto is None:
+                tokens = [format_token(kuid) for kuid in unique]
+            else:
+                pairs: dict[tuple[int, int], str] = {}
+                for kuid in unique:
+                    pairs.setdefault(split_kuid(kuid), kuid)
+                tokens = expand_versions(list(pairs.values()), upto)
             self.progress.setValue(2)
 
             result = join(tokens)

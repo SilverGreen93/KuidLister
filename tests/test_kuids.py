@@ -56,14 +56,19 @@ def test_dedupe_keeps_the_first_of_each():
     ]
 
 
-def test_a_version_in_the_input_is_the_same_asset_as_the_bare_kuid():
-    """The VB.NET code compared author and content id only.
+def test_a_version_in_the_input_is_its_own_asset():
+    """A versioned kuid2 is not folded onto the bare kuid of the same pair.
 
-    ``kuid2:1:2:7`` written after ``kuid:1:2`` is the same asset, so it is
-    dropped and the first spelling is the one kept.
+    ``kuid:A:C`` and ``kuid2:A:C:7`` name different versions, so they stay two
+    entries; only an exact repeat of a token is dropped.
     """
-    assert dedupe(["kuid:1:2", "kuid2:1:2:7"]) == ["kuid:1:2"]
-    assert dedupe(["kuid2:1:2:7", "kuid:1:2"]) == ["kuid2:1:2:7"]
+    assert dedupe(["kuid:1:2", "kuid2:1:2:7"]) == ["kuid:1:2", "kuid2:1:2:7"]
+    assert dedupe(["kuid2:1:2:7", "kuid:1:2"]) == ["kuid2:1:2:7", "kuid:1:2"]
+
+
+def test_dedupe_folds_only_exact_repeats_ignoring_case():
+    """The same token twice is one entry; the first spelling is kept."""
+    assert dedupe(["KUID:7:8", "kuid:7:8"]) == ["KUID:7:8"]
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +134,7 @@ def test_all_four_negative_spellings_are_listed():
         "<kuid:-1234:-12345>",
         "<kuid:-1234:12345>",
         "<kuid:1234:-12345>",
+        "<kuid2:1234:-12345:2>",
     ]
 
 
@@ -156,7 +162,7 @@ def test_negative_authors_are_listed_once_even_with_upto():
 # ---------------------------------------------------------------------------
 
 def test_lists_each_unique_kuid_once():
-    assert list_kuids(SAMPLE) == ["<kuid:1234:12345>", "<kuid:4321:54321>"]
+    assert list_kuids(SAMPLE) == ["<kuid:1234:12345>", "<kuid2:4321:54321:2>"]
 
 
 def test_a_repeat_is_listed_once():
@@ -164,46 +170,48 @@ def test_a_repeat_is_listed_once():
     assert list_kuids(text) == ["<kuid:1234:12345>"]
 
 
-def test_a_version_written_in_the_input_is_dropped():
-    """kuid2:4321:54321:2 becomes <kuid:4321:54321>.
+def test_a_version_written_in_the_input_is_kept():
+    """kuid2:4321:54321:2 stays <kuid2:4321:54321:2>.
 
-    The VB.NET code split every kuid into author and content id and joined
-    those two back together, so the version in the text never survived; the
-    port re-joins them the same way.
+    The plain listing keeps each token as written, version and all; only the
+    version *run* (``upto``) folds a pair onto one entry.
     """
-    assert list_kuids("<kuid2:4321:54321:2>") == ["<kuid:4321:54321>"]
+    assert list_kuids("<kuid2:4321:54321:2>") == ["<kuid2:4321:54321:2>"]
 
 
-def test_a_kuid2_repeat_of_a_kuid_adds_nothing():
-    assert list_kuids("<kuid:1:2> and <kuid2:1:2:9>") == ["<kuid:1:2>"]
+def test_a_kuid2_and_its_bare_kuid_are_two_entries():
+    """A versioned kuid2 is not a repeat of the bare kuid of the same pair."""
+    assert list_kuids("<kuid:1:2> and <kuid2:1:2:9>") == [
+        "<kuid:1:2>",
+        "<kuid2:1:2:9>",
+    ]
 
 
-def test_two_versions_of_one_asset_fold_onto_a_single_kuid():
-    """``:3`` and ``:4`` of the same author/id name one asset, not two.
+def test_two_versions_of_one_asset_are_two_different_assets():
+    """``:3`` and ``:4`` of the same author/id stay two entries.
 
-    The VB.NET code keyed on author and content id only, so both spellings
-    collapse to a single entry and the version written in the text is dropped;
-    what they share is that pair, which is also why either one expands to the
-    same 0..n run of versions.
-
-    NOTE: this is VB-1.13 behaviour.  If ``:3`` and ``:4`` are meant to stay two
-    separate tokens in the plain listing (see README / the open question), only
-    the ``upto is None`` branch changes -- the version-run behaviour below stays.
+    Both spellings name an asset at a particular version, so each is listed as
+    itself; what they share is the author/id pair, which is why either one
+    expands to the same 0..n run once ``upto`` is given.
     """
     text = "<kuid2:1234:12345:3> <kuid2:1234:12345:4>"
-    assert list_kuids(text) == ["<kuid:1234:12345>"]
+    assert list_kuids(text) == ["<kuid2:1234:12345:3>", "<kuid2:1234:12345:4>"]
     assert len(list_kuids(text, upto=5)) == 6
 
 
 def test_the_first_spelling_of_a_pair_is_the_one_kept():
-    """A repeat never changes the order or brings back a version number."""
+    """An exact repeat never changes the order."""
     assert list_kuids("<kuid:1:2> <kuid:1:2> <kuid:3:4>") == ["<kuid:1:2>", "<kuid:3:4>"]
-    assert list_kuids("<kuid2:1:2:9> <kuid:1:2>") == ["<kuid:1:2>"]
+    assert list_kuids("<kuid2:1:2:9> <kuid2:1:2:9>") == ["<kuid2:1:2:9>"]
 
 
-def test_three_spelling_variants_of_one_pair_collapse_to_one():
+def test_exact_repeats_across_spellings_collapse_but_versions_do_not():
     text = "<kuid:7:8> <kuid2:7:8:0> <kuid2:7:8:12> <KUID:7:8>"
-    assert list_kuids(text) == ["<kuid:7:8>"]
+    assert list_kuids(text) == [
+        "<kuid:7:8>",
+        "<kuid2:7:8:0>",
+        "<kuid2:7:8:12>",
+    ]
     assert len(list_kuids(text, upto=3)) == 4
 
 
@@ -300,19 +308,22 @@ def test_the_limit_is_inclusive_and_counts_up_from_zero():
 def test_random_kuids_are_all_listed():
     """A handful of random kuids pasted as CM lines come back in full.
 
-    Two of them are repeated as kuid2 with a version written in, which the
-    list must fold back onto the same author/id pair: each pair appears once,
-    in the order it was first seen.
+    Two of them are repeated as kuid2 with a version written in; the plain
+    listing keeps each token as written, so those repeats show up as their own
+    <kuid2:...:v> entries after the eight bare kuids -- every distinct token
+    once, in the order it was first seen.
     """
     rng = random.Random(20240601)
     kuids = [(rng.randint(1, 99999), rng.randint(1, 999999)) for _ in range(8)]
     repeats = [kuids[1], kuids[5]]
 
     lines = [f"Unknown location: <kuid:{a}:{c}>" for a, c in kuids]
-    lines += [f"Modified: <kuid2:{a}:{c}:{rng.randint(0, 9)}>" for a, c in repeats]
+    versions = {pair: rng.randint(0, 9) for pair in repeats}
+    lines += [f"Modified: <kuid2:{a}:{c}:{versions[(a, c)]}>" for a, c in repeats]
     text = "\n".join(lines)
 
-    expected = [f"<kuid:{a}:{c}>" for a, c in dict.fromkeys(kuids)]
+    expected = [f"<kuid:{a}:{c}>" for a, c in kuids]
+    expected += [f"<kuid2:{a}:{c}:{v}>" for (a, c), v in versions.items()]
     assert list_kuids(text) == expected
 
 

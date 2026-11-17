@@ -25,7 +25,7 @@ def feed(monkeypatch, text: str) -> None:
 def test_run_cli_writes_one_comma_separated_line():
     out, err = io.StringIO(), io.StringIO()
     assert run_cli(SAMPLE, out=out, err=err) is True
-    assert out.getvalue() == "<kuid:1234:12345>,<kuid:4321:54321>\n"
+    assert out.getvalue() == "<kuid:1234:12345>,<kuid2:4321:54321:2>\n"
     assert err.getvalue() == ""
 
 
@@ -51,7 +51,7 @@ def test_run_cli_reports_input_without_kuids():
 def test_reads_the_kuids_from_stdin(monkeypatch, capsys):
     feed(monkeypatch, SAMPLE)
     assert main([]) == 0
-    assert capsys.readouterr().out == "<kuid:1234:12345>,<kuid:4321:54321>\n"
+    assert capsys.readouterr().out == "<kuid:1234:12345>,<kuid2:4321:54321:2>\n"
 
 
 def test_upto_option_expands_every_kuid(monkeypatch, capsys):
@@ -97,8 +97,16 @@ def test_negative_kuids_are_listed(monkeypatch, capsys):
     )
     assert main([]) == 0
     assert capsys.readouterr().out == (
-        "<kuid:-1234:-12345>,<kuid:-1234:12345>,<kuid:1234:-12345>\n"
+        "<kuid:-1234:-12345>,<kuid:-1234:12345>,"
+        "<kuid:1234:-12345>,<kuid2:1234:-12345:2>\n"
     )
+
+
+def test_versions_are_kept_without_upto(monkeypatch, capsys):
+    """Each kuid keeps its version; only exact repeats collapse."""
+    feed(monkeypatch, "<kuid2:1234:12345:3> <kuid2:1234:12345:4>")
+    assert main([]) == 0
+    assert capsys.readouterr().out == "<kuid2:1234:12345:3>,<kuid2:1234:12345:4>\n"
 
 
 def test_upto_127_is_the_largest_accepted(monkeypatch, capsys):

@@ -5,6 +5,12 @@ in a chunk of text, drop the duplicates and join the survivors with commas --
 optionally replacing each kuid by all of its asset versions from 0 up to a
 chosen maximum.
 
+Unlike the original, which split every kuid down to author and content id and
+threw the version away, the plain listing keeps each token as it was written:
+different versions of one asset stay separate entries and only exact repeats
+collapse.  The author/id folding survives only where it belongs -- when a
+version run is asked for (``upto``), so each asset expands exactly once.
+
 The original ran over the whole text twice (once for the matches, once to
 strip duplicates) and drove a progress bar with three passes; :func:`extract_kuids`
 and :func:`list_kuids` keep those two stages apart so the GUI can report
@@ -22,6 +28,7 @@ __all__ = [
     "extract_kuids",
     "dedupe",
     "format_kuid",
+    "format_token",
     "expand_versions",
     "list_kuids",
     "join",
@@ -49,18 +56,19 @@ def extract_kuids(text: str) -> list[str]:
 
 
 def dedupe(kuids: list[str]) -> list[str]:
-    """The kuids with repeats removed, keeping the first of each.
+    """The kuids with exact repeats removed, keeping the first of each.
 
-    Two mentions are the same asset when their author and content id match --
-    the VB.NET code split every kuid and compared those two parts, so a
-    ``kuid2:A:C:6`` in the text folded onto an earlier ``kuid:A:C`` and its
-    version was dropped with it.  Later copies are skipped rather than blanked
-    out as they were there; the list that comes out is the same.
+    Two mentions are the same when the whole token matches -- ``kuid2:A:C:3``
+    and ``kuid2:A:C:4`` name two versions of an asset and stay separate entries,
+    while a second ``kuid:A:C`` is dropped.  Keyed on the lower-cased token so
+    ``KUID:7:8`` still folds onto ``kuid:7:8``, as it did in the VB.NET code;
+    unlike there, the version written in a token is no longer discarded here --
+    that folding now happens only for the version run, see :func:`list_kuids`.
     """
 
-    unique: dict[tuple[int, int], str] = {}
+    unique: dict[str, str] = {}
     for token in kuids:
-        unique.setdefault(split_kuid(token), token)
+        unique.setdefault(token.lower(), token)
     return list(unique.values())
 
 
@@ -120,17 +128,40 @@ def expand_versions(kuids: list[str], upto: int) -> list[str]:
 def list_kuids(text: str, upto: int | None = None) -> list[str]:
     """Turn pasted text into the list of kuids to show.
 
-    Returns the quoted kuid tokens.  With ``upto`` set, each kuid is replaced
-    by its versions from 0 to that number; with ``None`` (the checkbox off)
-    every unique kuid is rebuilt as a plain kuid, versions and all, just as the
-    VB.NET code re-joined the pieces it had split.  Either way an author/id pair
-    is listed once: repeats of the same spelling, and other spellings of the
-    same pair, never add a second copy or a second run of versions.
+    Without ``upto`` (the checkbox off) every kuid is kept as it was written,
+    version and all, with only exact repeats folded away -- so
+    ``<kuid2:1234:12345:3> <kuid2:1234:12345:4>`` stays two entries.
+
+    With ``upto`` set, each *asset* (author and content id) is replaced by one
+    run of its versions from 0 to that number; every spelling of the same pair
+    -- bare kuid or any versioned kuid2 -- folds onto that single run, so no
+    author/id pair is expanded twice.
+
+    An author/id pair is therefore listed once either way: as one token per
+    distinct version when ``upto`` is off, or as one version run when it is on.
     """
     unique = dedupe(extract_kuids(text))
     if upto is None:
-        return [format_kuid(*split_kuid(token)) for token in unique]
-    return expand_versions(unique, upto)
+        return [format_token(token) for token in unique]
+    pairs: dict[tuple[int, int], str] = {}
+    for token in unique:
+        pairs.setdefault(split_kuid(token), token)
+    return expand_versions(list(pairs.values()), upto)
+
+
+def format_token(token: str) -> str:
+    """One extracted kuid token as it appears in the output list.
+
+    The bare ``kuid:A:C`` becomes ``<kuid:A:C>``; a versioned ``kuid2:A:C:v``
+    keeps its version verbatim, so ``<kuid2:A:C:0>`` stays spelled that way --
+    "as written" wins over the zero rule here (that rule belongs to the version
+    run, see :func:`format_kuid`).  Rebuilt from its parts so the odd casing of
+    the original mention does not reach the output.
+    """
+    parts = token.split(":")
+    if parts[0].lower() == "kuid2" and len(parts) > 3 and parts[3] != "":
+        return f"<kuid2:{int(parts[1])}:{int(parts[2])}:{int(parts[3])}>"
+    return format_kuid(int(parts[1]), int(parts[2]))
 
 
 def join(tokens: list[str]) -> str:
