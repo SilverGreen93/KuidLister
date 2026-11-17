@@ -1,0 +1,25 @@
+[project]
+name = "kuidlister"
+version = "2.0"
+description = "Generate lists of Trainz KUIDs"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+gui = ["PyQt6>=6.5"]
+test = ["pytest>=7"]
+build = ["pyinstaller>=6", "pillow>=10"]  # pillow: PyInstaller converts .ico -> .icns on macOS
+
+[project.scripts]
+kuidlister = "kuidlister.cli:main"
+kuidlister-gui = "kuidlister.gui:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
