@@ -51,7 +51,7 @@ __all__ = ["KuidListerWindow", "run_gui"]
 
 APP_TITLE = f"Kuid Lister {__version__}"
 GITHUB_URL = "https://github.com/SilverGreen93/KuidLister"
-ICON_FILE = "PresentationHost.exe_I03eb_0409.ico"
+ICON_FILE = "kuidlister.ico"
 DEFAULT_UPTO = 10
 
 
@@ -64,7 +64,7 @@ def _window_icon() -> QIcon | None:
     if getattr(sys, "frozen", False):  # running under PyInstaller
         base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)) / ICON_FILE
     else:
-        base = Path(__file__).resolve().parent.parent.parent / ICON_FILE
+        base = Path(__file__).resolve().parent.parent.parent / "assets" / ICON_FILE
     return QIcon(str(base)) if base.is_file() else None
 
 
