@@ -42,5 +42,5 @@ For any bugs, issues or feature requests, use the Issues tab in GitHub.
 ## Related Trainz tools
 
 - [CDP Explorer](https://github.com/SilverGreen93/CDPExplorer)
-- [TZ Archiver](https://github.com/SilverGreen93/TZarchiver)
+- [TZarchiver](https://github.com/SilverGreen93/TZarchiver)
 - [Kuid2Hash](https://github.com/SilverGreen93/Kuid2Hash)
