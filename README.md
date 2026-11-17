@@ -12,7 +12,7 @@ Download the latest Windows build from the Releases tab: the zip holds the GUI (
 
 ## Building
 
-The application is Python 3.9+ with a PyQt6 interface; `vbnet-original\` holds the Visual Studio / .NET Framework 4.8 sources it was ported from.
+The application is Python 3.9+ with a PyQt6 interface.
 
 ```
 python -m pip install -e ".[gui]"            # the package plus its Qt binding
