@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Kuid Lister - per-user MSI installer (WiX v5).
+
+  Packages the two PyInstaller one-file exes from dist\ (GUI + CLI) into a
+  single small MSI that installs for the current user only: no elevation,
+  files under %LOCALAPPDATA%\Programs\KuidLister, a Start Menu shortcut for
+  the GUI (the CLI is meant to be used from a terminal, so it gets none), the
+  folder added to the user's PATH so `kuidlistercli` works from any terminal,
+  and a normal Add/Remove Programs entry. Reinstalling the same version over an
+  existing install is allowed (AllowSameVersionUpgrades).
+
+  Build with installer\build.ps1 (build the exes first with build.py), or
+  manually (always -arch x64 - see the comment inside <Package>):
+
+    wix build installer\Product.wxs -arch x64 -ext WixToolset.UI.wixext -d Version=2.0 -o KuidLister-2.0.msi
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <?ifndef Version?><?define Version = "2.0" ?><?endif?>
+  <?ifndef DistDir?><?define DistDir = "..\dist" ?><?endif?>
+  <?ifndef AssetsDir?><?define AssetsDir = "..\assets" ?><?endif?>
+
+  <Package Name="Kuid Lister"
+           Manufacturer="SilverGreen93"
+           Version="$(var.Version)"
+           UpgradeCode="672C1610-09B9-46AF-9DDB-E6EF55439EE9"
+           Language="1033"
+           Scope="perUser"
+           Compressed="yes"
+           InstallerVersion="500">
+
+    <!--
+      "perUser" produces a pure per-user package: ALLUSERS is left unset, so
+      Windows Installer always uses the per-user context and no elevation is
+      ever attempted. (Windows Installer records installation data - including
+      the Add/Remove Programs entry - under HKLM for every MSI regardless of
+      scope; the files, shortcuts and PATH below are what install per-user.)
+      The package must also be built 64-bit (wix build -arch x64, see
+      installer\build.ps1): WiX defaults to an x86 package, whose ARP entry
+      lands in the HKLM\...\Uninstall\Wow6432Node sub-hive instead of the
+      64-bit view. The exes are 64-bit anyway.
+    -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Setup wizard: Welcome -> Verify Ready -> progress -> Finish. -->
+    <UIRef Id="InstallWizard" />
+
+    <Icon Id="AppIcon.ico" SourceFile="$(var.AssetsDir)\kuidlister.ico" />
+    <!--
+      Add/Remove Programs details. WiX v4+ already publishes DisplayName,
+      DisplayVersion and Publisher from the Package attributes, but pinning
+      them as properties costs nothing; the Support/Contact/Comments values
+      must come from the ARP*-prefixed property names (plain URLInfoAbout/
+      Contact are not published).
+    -->
+    <Property Id="DisplayName" Value="Kuid Lister" />
+    <Property Id="DisplayVersion" Value="$(var.Version)" />
+    <Property Id="Publisher" Value="SilverGreen93" />
+    <Property Id="ARPCOMMENTS" Value="Trainz KUID list generator (GUI + command line)." />
+    <!-- The ARP URL/contact values are published from the ARP*-prefixed
+         properties, NOT from plain URLInfoAbout/Contact. -->
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/SilverGreen93/KuidLister" />
+    <Property Id="ARPCONTACT" Value="https://github.com/SilverGreen93/KuidLister" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+
+    <!-- Installs under %LOCALAPPDATA%\Programs\KuidLister (no admin). -->
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="LocalProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="KuidLister" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Start Menu shortcuts (per-user, shown for the installing user). -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationMenuFolder" Name="Kuid Lister" />
+    </StandardDirectory>
+
+    <Feature Id="MainApplication" Title="Kuid Lister" Level="1">
+      <ComponentGroupRef Id="ApplicationFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="UserPath" />
+    </Feature>
+
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="ApplicationFiles" Directory="INSTALLFOLDER">
+      <Component Id="GuiExeComp">
+        <File Source="$(var.DistDir)\KuidLister.exe" />
+      </Component>
+      <!--
+        The CLI exe is renamed to kuidlistercli.exe on install so the command
+        matches the `kuidlistercli` console script name from pyproject.toml.
+      -->
+      <Component Id="CliExeComp">
+        <File Id="CliExeFile" Source="$(var.DistDir)\KuidListerCli.exe" Name="kuidlistercli.exe" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <Component Id="StartMenuShortcut" Directory="ApplicationMenuFolder">
+      <RegistryValue Root="HKCU"
+                     Key="Software\KuidLister"
+                     Name="StartMenuShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+      <Shortcut Id="ApplicationShortcut"
+                Name="Kuid Lister"
+                Description="Trainz KUID list generator"
+                Target="[INSTALLFOLDER]KuidLister.exe"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RemoveFolder Id="RemoveApplicationMenuFolder" On="uninstall" />
+    </Component>
+  </Fragment>
+
+  <!--
+    Put the install folder on the *user* PATH (HKCU Environment, the standard
+    per-user mechanism) so `kuidlistercli` works from any terminal; WiX appends
+    on install and takes the value back out on uninstall.
+  -->
+  <Fragment>
+    <Component Id="UserPath" Guid="*">
+      <RegistryValue Root="HKCU"
+                     Key="Software\KuidLister"
+                     Name="Path"
+                     Type="string"
+                     Value="[INSTALLFOLDER]"
+                     KeyPath="yes" />
+      <Environment Id="InstallFolderOnPath"
+                   Name="PATH"
+                   Value="[INSTALLFOLDER]"
+                   Action="set"
+                   System="no"
+                   Part="last" />
+    </Component>
+  </Fragment>
+
+  <!--
+    Standard WiX dialogs forming a simple wizard for the per-user install:
+    Welcome -> Verify Ready (Install) -> progress -> Finish. Repair/Remove
+    from Programs and Features uses the maintenance dialogs. The standard
+    sequence shows ProgressDlg, the Verify Ready and Finish dialogs.
+  -->
+  <Fragment>
+    <UI Id="InstallWizard">
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Segoe UI" Size="9" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Segoe UI" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Segoe UI" Size="10" Bold="yes" />
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+      <DialogRef Id="WelcomeDlg" />
+      <DialogRef Id="VerifyReadyDlg" />
+      <DialogRef Id="ExitDialog" />
+      <DialogRef Id="MaintenanceWelcomeDlg" />
+      <DialogRef Id="MaintenanceTypeDlg" />
+
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" />
+
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="1" Condition="NOT Installed" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="2" Condition="Installed AND NOT PATCH" />
+
+      <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="RepairButton" Event="NewDialog" Value="VerifyReadyDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog" Value="VerifyReadyDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="Back" Event="NewDialog" Value="MaintenanceWelcomeDlg" />
+
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999" />
+    </UI>
+
+    <UIRef Id="WixUI_Common" />
+  </Fragment>
+
+</Wix>
