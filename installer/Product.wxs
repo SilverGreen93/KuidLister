@@ -93,8 +93,11 @@
         <File Source="$(var.DistDir)\KuidLister.exe" />
       </Component>
       <!--
-        The CLI exe is renamed to kuidlistercli.exe on install so the command
-        matches the `kuidlistercli` console script name from pyproject.toml.
+        The CLI exe keeps the name it was built with, kuidlistercli.exe: that
+        is the command this installer puts on the user PATH below.  (The pip
+        console scripts in pyproject.toml are named kuidlister / kuidlister-gui;
+        the standalone exe gets its own unambiguous name so a pip install and
+        this MSI can sit side by side without shadowing each other.)
       -->
       <Component Id="CliExeComp">
         <File Id="CliExeFile" Source="$(var.DistDir)\KuidListerCli.exe" Name="kuidlistercli.exe" />
