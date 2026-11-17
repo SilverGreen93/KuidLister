@@ -9,6 +9,8 @@ refuses, and what it does when a value slips through anyway.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 pytest.importorskip("PyQt6")
@@ -190,6 +192,27 @@ def test_the_checkbox_generates_one_version_run_per_asset(window):
     assert window.output.toPlainText() == (
         "<kuid:1234:12345>,<kuid2:1234:12345:1>,<kuid2:1234:12345:2>"
     )
+
+
+def test_the_reported_time_covers_the_whole_listing(window, monkeypatch):
+    """The status time is the whole listing, not just the number crunching.
+
+    Putting a large result in the output box costs far more than building it, so
+    the timer has to run until the listing is really finished -- otherwise a big
+    paste reports a few milliseconds when it took much longer.  The fake render
+    stands in for that cost; the reported time must include it.
+    """
+
+    def slow_set_plain_text(_text):
+        time.sleep(0.05)  # ~50 ms of "rendering"
+
+    monkeypatch.setattr(window.output, "setPlainText", slow_set_plain_text)
+    window.input.setPlainText("<kuid:1234:12345>")
+
+    window.on_list()
+
+    reported = int(window.status.text().split(" in ")[1].split(" ms")[0])
+    assert reported >= 50, window.status.text()
 
 
 def test_the_button_keeps_versions_but_normalises_zero(window):

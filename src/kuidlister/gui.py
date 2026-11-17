@@ -214,13 +214,17 @@ class KuidListerWindow(QWidget):
             self.progress.setValue(2)
 
             result = join(tokens)
-            elapsed_ms = (time.perf_counter() - started) * 1000.0
             self.output.setPlainText(result)
-            self.status.setText(f"Listed {len(tokens)} KUIDs in {elapsed_ms:.0f} ms.")
 
             # the original selected and copied the result for you
             if result:
                 QApplication.clipboard().setText(result)
+
+            # measure only now, so the time covers everything up to a finished
+            # listing -- putting the big result in the output box (a quarter
+            # megabyte here) and copying it cost more than the computation did
+            elapsed_ms = (time.perf_counter() - started) * 1000.0
+            self.status.setText(f"Listed {len(tokens)} KUIDs in {elapsed_ms:.0f} ms.")
         finally:
             self._running = False
             self.progress.setValue(0)
