@@ -130,7 +130,9 @@ def list_kuids(text: str, upto: int | None = None) -> list[str]:
 
     Without ``upto`` (the checkbox off) every kuid is kept as it was written,
     version and all, with only exact repeats folded away -- so
-    ``<kuid2:1234:12345:3> <kuid2:1234:12345:4>`` stays two entries.
+    ``<kuid2:1234:12345:3> <kuid2:1234:12345:4>`` stays two entries.  The one
+    exception is version 0: written as ``<kuid:A:C>`` or an explicit
+    ``<kuid2:A:C:0>``, it always comes back as the plain ``<kuid:A:C>``.
 
     With ``upto`` set, each *asset* (author and content id) is replaced by one
     run of its versions from 0 to that number; every spelling of the same pair
@@ -142,7 +144,9 @@ def list_kuids(text: str, upto: int | None = None) -> list[str]:
     """
     unique = dedupe(extract_kuids(text))
     if upto is None:
-        return [format_token(token) for token in unique]
+        # Fold on the rendered form so a bare kuid and an explicit :0 of the
+        # same pair -- which both come back as <kuid:A:C> -- count as one entry.
+        return list(dict.fromkeys(format_token(token) for token in unique))
     pairs: dict[tuple[int, int], str] = {}
     for token in unique:
         pairs.setdefault(split_kuid(token), token)
@@ -153,15 +157,26 @@ def format_token(token: str) -> str:
     """One extracted kuid token as it appears in the output list.
 
     The bare ``kuid:A:C`` becomes ``<kuid:A:C>``; a versioned ``kuid2:A:C:v``
-    keeps its version verbatim, so ``<kuid2:A:C:0>`` stays spelled that way --
-    "as written" wins over the zero rule here (that rule belongs to the version
-    run, see :func:`format_kuid`).  Rebuilt from its parts so the odd casing of
-    the original mention does not reach the output.
+    keeps its version as ``<kuid2:A:C:v>`` -- except version 0, which is always
+    the plain kuid, so an explicit ``<kuid2:A:C:0>`` comes back as
+    ``<kuid:A:C>``.  Rebuilt from its parts so the odd casing of the original
+    mention does not reach the output.
+    """
+    return format_kuid(*split_versioned(token))
+
+
+def split_versioned(token: str) -> tuple[int, int, int | None]:
+    """The author, content id and version of a kuid token.
+
+    The version is ``None`` for a bare ``kuid:A:C`` and an integer for a
+    ``kuid2:A:C:v``, including the explicit zero that Trainz also accepts; only
+    a real version number above it survives as a distinct asset version.
     """
     parts = token.split(":")
+    author, content_id = int(parts[1]), int(parts[2])
     if parts[0].lower() == "kuid2" and len(parts) > 3 and parts[3] != "":
-        return f"<kuid2:{int(parts[1])}:{int(parts[2])}:{int(parts[3])}>"
-    return format_kuid(int(parts[1]), int(parts[2]))
+        return author, content_id, int(parts[3])
+    return author, content_id, None
 
 
 def join(tokens: list[str]) -> str:

@@ -207,12 +207,19 @@ def test_the_first_spelling_of_a_pair_is_the_one_kept():
 
 def test_exact_repeats_across_spellings_collapse_but_versions_do_not():
     text = "<kuid:7:8> <kuid2:7:8:0> <kuid2:7:8:12> <KUID:7:8>"
-    assert list_kuids(text) == [
-        "<kuid:7:8>",
-        "<kuid2:7:8:0>",
-        "<kuid2:7:8:12>",
-    ]
+    # :0 normalises to <kuid:7:8>, which then collapses with the bare kuid and
+    # the KUID:7:8 repeat; only the genuine :12 version stays a separate entry.
+    assert list_kuids(text) == ["<kuid:7:8>", "<kuid2:7:8:12>"]
     assert len(list_kuids(text, upto=3)) == 4
+
+
+def test_version_zero_is_always_the_plain_kuid():
+    """An explicit ``<kuid2:A:C:0>`` is normalised to ``<kuid:A:C>``.
+
+    Version zero carries nothing the bare kuid does not already say, so it is
+    written the plain way whether or not the input spelled out the ``:0``.
+    """
+    assert list_kuids("<kuid2:7:8:0>") == ["<kuid:7:8>"]
 
 
 def test_nothing_in_gives_nothing_out():

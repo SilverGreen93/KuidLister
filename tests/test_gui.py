@@ -182,6 +182,23 @@ def test_the_checkbox_generates_one_version_run_per_asset(window):
     )
 
 
+def test_the_button_keeps_versions_but_normalises_zero(window):
+    """Checkbox off: :3 and :4 stay separate, an explicit :0 becomes the kuid.
+
+    Guards that the GUI shares list_kuids' rules -- it used to format tokens on
+    its own and drop every version.
+    """
+    window.input.setPlainText(
+        "<kuid2:1234:12345:3> <kuid2:1234:12345:4> <kuid2:1234:12345:0>"
+    )
+
+    window.on_list()
+
+    assert window.output.toPlainText() == (
+        "<kuid2:1234:12345:3>,<kuid2:1234:12345:4>,<kuid:1234:12345>"
+    )
+
+
 def test_negative_kuids_survive_the_button(window):
     window.input.setPlainText(
         "<kuid:-1234:-12345> <kuid:-1234:12345> "
