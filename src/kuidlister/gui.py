@@ -20,16 +20,15 @@ import webbrowser
 from pathlib import Path
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon, QIntValidator, QValidator
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
-    QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -45,34 +44,12 @@ from .kuids import (
     split_kuid,
 )
 
-__all__ = ["KuidListerWindow", "VersionValidator", "run_gui"]
+__all__ = ["KuidListerWindow", "run_gui"]
 
 APP_TITLE = f"Kuid Lister {__version__}"
 GITHUB_URL = "https://github.com/SilverGreen93/KuidLister"
 ICON_FILE = "kuidlister.ico"
 DEFAULT_UPTO = 10
-
-
-class VersionValidator(QIntValidator):
-    """A 0..MAX_VERSION field that never ends up holding a bad number.
-
-    QIntValidator alone is not enough: it calls "128" and "999" *intermediate*
-    (a longer edit of them could still be in range), so the widget happily keeps
-    such a value and a List & Copy would run with a limit above 127.  Anything
-    that is not strictly in range is refused here instead, which is what the
-    original's TextBox3 TextChanged handler did when it popped up its warning.
-    """
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(0, MAX_VERSION, parent)
-
-    def validate(self, input_str: str, input_pos: int):  # type: ignore[override]
-        state, text, position = super().validate(input_str, input_pos)
-        if state == QValidator.State.Intermediate:
-            return QValidator.State.Invalid, text, position
-        if state == QValidator.State.Acceptable and not 0 <= int(text) <= MAX_VERSION:
-            return QValidator.State.Invalid, text, position
-        return state, text, position
 
 
 def _window_icon() -> QIcon | None:
@@ -127,18 +104,19 @@ class KuidListerWindow(QWidget):
         self.btn_list = QPushButton("List & Copy")
         self.btn_list.setMinimumSize(128, 30)
         self.chk_versions = QCheckBox("Generate asset versions up to:")
-        self.edit_upto = QLineEdit(str(DEFAULT_UPTO))
-        # the original validated on every keystroke and complained; a validator
-        # simply refuses anything outside the range instead -- including the
-        # "128"/"999" QIntValidator would have let stand as intermediate
-        self.edit_upto.setValidator(VersionValidator(self))
-        self.edit_upto.setFixedWidth(48)
-        self.chk_versions.toggled.connect(self.edit_upto.setEnabled)
-        self.edit_upto.setEnabled(self.chk_versions.isChecked())
+        self.spin_upto = QSpinBox()
+        # a spin box is clamped to its range, so it can only ever hold a value
+        # from 0 to MAX_VERSION -- no separate validator or warning needed, which
+        # the old QLineEdit with a VersionValidator had to do by hand
+        self.spin_upto.setRange(0, MAX_VERSION)
+        self.spin_upto.setValue(DEFAULT_UPTO)
+        self.spin_upto.setFixedWidth(64)
+        self.chk_versions.toggled.connect(self.spin_upto.setEnabled)
+        self.spin_upto.setEnabled(self.chk_versions.isChecked())
         options.addWidget(self.btn_list)
         options.addStretch(1)
         options.addWidget(self.chk_versions)
-        options.addWidget(self.edit_upto)
+        options.addWidget(self.spin_upto)
         outer.addLayout(options)
 
         self.output = QPlainTextEdit()
@@ -178,8 +156,6 @@ class KuidListerWindow(QWidget):
         if self._running:
             return
         upto = self._upto()
-        if upto is _INVALID_UPTO:
-            return  # the version limit was refused, nothing to do
 
         self._running = True
         started = time.perf_counter()
@@ -216,22 +192,13 @@ class KuidListerWindow(QWidget):
     def _upto(self) -> int | None:
         """The version limit of the checkbox, or None when it is off.
 
-        :data:`_INVALID_UPTO` when the number is out of range -- the same
-        complaint the original raised in TextBox3's TextChanged handler.
+        The spin box is clamped to 0..MAX_VERSION, so its value always needs a
+        version run and can never be out of range -- no warning path like the
+        original's TextBox3 TextChanged handler has to exist here.
         """
         if not self.chk_versions.isChecked():
             return None
-        value = int(self.edit_upto.text() or str(DEFAULT_UPTO))
-        if not 0 <= value <= MAX_VERSION:
-            QMessageBox.warning(
-                self, "Invalid version", "Versions above 127 or below 0 are invalid!"
-            )
-            return _INVALID_UPTO
-        return value
-
-
-# sentinel for a refused version limit, distinct from the checkbox being off
-_INVALID_UPTO = object()
+        return self.spin_upto.value()
 
 
 def run_gui() -> int:
