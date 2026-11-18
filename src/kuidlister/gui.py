@@ -1,10 +1,10 @@
 """PyQt6 GUI for Kuid Lister.
 
 A fixed-size portrait window, laid out top to bottom like the original form:
-the label asking for pasted content, Append paste / Clear, the input box, the
-List & Copy button next to the "Generate asset versions up to" checkbox and
-its number, the read-only result box, the status line and the copyright/GitHub
-footer.
+the label asking for pasted content, Paste (with an Append checkbox) / Clear,
+the input box, the List button next to a Copy checkbox and the "Generate asset
+versions up to" checkbox and its number, the read-only result box, the status
+line and the copyright/GitHub footer.
 
 All the work happens in :mod:`kuidlister.kuids`; this module only moves text
 between the widgets and reports how long it took.  The original drove its
@@ -50,6 +50,10 @@ APP_TITLE = f"Kuid Lister {__version__}"
 GITHUB_URL = "https://github.com/SilverGreen93/KuidLister"
 ICON_FILE = "kuidlister.ico"
 DEFAULT_UPTO = 10
+# the two new option checkboxes start off, matching the old always-append and
+# always-copy behaviour so nothing surprises a returning user
+DEFAULT_APPEND = True
+DEFAULT_COPY = True
 
 
 class DropForwardEdit(QPlainTextEdit):
@@ -103,11 +107,14 @@ class KuidListerWindow(QWidget):
 
         buttons = QHBoxLayout()
         buttons.setSpacing(4)
-        self.btn_paste = QPushButton("Append paste")
+        self.btn_paste = QPushButton("Paste")
+        self.chk_append = QCheckBox("Append")
+        self.chk_append.setChecked(DEFAULT_APPEND)
         self.btn_clear = QPushButton("Clear")
         for button in (self.btn_paste, self.btn_clear):
-            button.setMinimumSize(128, 30)
+            button.setMinimumSize(90, 30)
         buttons.addWidget(self.btn_paste)
+        buttons.addWidget(self.chk_append)
         buttons.addStretch(1)
         buttons.addWidget(self.btn_clear)
         outer.addLayout(buttons)
@@ -117,8 +124,10 @@ class KuidListerWindow(QWidget):
 
         options = QHBoxLayout()
         options.setSpacing(4)
-        self.btn_list = QPushButton("List & Copy")
-        self.btn_list.setMinimumSize(128, 30)
+        self.btn_list = QPushButton("List")
+        self.btn_list.setMinimumSize(90, 30)
+        self.chk_copy = QCheckBox("Copy")
+        self.chk_copy.setChecked(DEFAULT_COPY)
         self.chk_versions = QCheckBox("Generate asset versions up to:")
         self.spin_upto = QSpinBox()
         # a spin box is clamped to its range, so it can only ever hold a value
@@ -130,6 +139,7 @@ class KuidListerWindow(QWidget):
         self.chk_versions.toggled.connect(self.spin_upto.setEnabled)
         self.spin_upto.setEnabled(self.chk_versions.isChecked())
         options.addWidget(self.btn_list)
+        options.addWidget(self.chk_copy)
         options.addStretch(1)
         options.addWidget(self.chk_versions)
         options.addWidget(self.spin_upto)
@@ -153,7 +163,7 @@ class KuidListerWindow(QWidget):
         footer.addWidget(link, 2)
         outer.addLayout(footer)
 
-        self.btn_paste.clicked.connect(self.on_append_paste)
+        self.btn_paste.clicked.connect(self.on_paste)
         self.btn_clear.clicked.connect(self.on_clear)
         self.btn_list.clicked.connect(self.on_list)
 
@@ -162,11 +172,22 @@ class KuidListerWindow(QWidget):
         self.setAcceptDrops(True)
 
     # -- actions ------------------------------------------------------------
-    def on_append_paste(self) -> None:
-        """Add the clipboard to the end of the input, as Append paste did."""
+    def _insert_into_input(self, text: str) -> None:
+        """Put pasted or dropped text in the input.
+
+        The Append checkbox decides whether it is added after what is already
+        there or replaces it; with the box off the new text is the whole input.
+        """
+        if self.chk_append.isChecked():
+            self.input.appendPlainText(text)
+        else:
+            self.input.setPlainText(text)
+
+    def on_paste(self) -> None:
+        """Put the clipboard in the input, appending or replacing as set."""
         text = QApplication.clipboard().text()
         if text:
-            self.input.appendPlainText(text)
+            self._insert_into_input(text)
 
     def on_clear(self) -> None:
         self.input.clear()
@@ -234,7 +255,7 @@ class KuidListerWindow(QWidget):
             self.status.setText(f"Could not read {name}: {exc.strerror}.")
             return ""
         if text:
-            self.input.appendPlainText(text)
+            self._insert_into_input(text)
         return name
 
     def on_list(self) -> None:
@@ -263,8 +284,9 @@ class KuidListerWindow(QWidget):
             result = join(tokens)
             self.output.setPlainText(result)
 
-            # the original selected and copied the result for you
-            if result:
+            # the Copy checkbox decides whether the list also goes to the
+            # clipboard; without it the result is only shown, never copied
+            if result and self.chk_copy.isChecked():
                 QApplication.clipboard().setText(result)
 
             # measure only now, so the time covers everything up to a finished

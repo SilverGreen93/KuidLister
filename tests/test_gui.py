@@ -1,10 +1,10 @@
 """Tests for kuidlister.gui: the version limit of the checkbox and the result
-of the List & Copy button.
+of the List button.
 
 These need a QApplication, so they run headless (QT_QPA_PLATFORM=offscreen in
 the CI workflows).  The listing itself is covered by test_kuids.py; here it is
 only about the widgets around it -- what the spin box holds, how it clamps to
-0..127, and what the button does with the value.
+0..127, and what the buttons do with the Append and Copy checkboxes.
 """
 
 from __future__ import annotations
@@ -20,7 +20,12 @@ pytest.importorskip("PyQt6")
 from PyQt6.QtCore import QMimeData, QPointF, Qt, QUrl
 from PyQt6.QtGui import QDropEvent, QDragEnterEvent, QDragMoveEvent
 from PyQt6.QtWidgets import QApplication
-from kuidlister.gui import DEFAULT_UPTO, KuidListerWindow
+from kuidlister.gui import (
+    DEFAULT_APPEND,
+    DEFAULT_COPY,
+    DEFAULT_UPTO,
+    KuidListerWindow,
+)
 from kuidlister.kuids import MAX_VERSION
 
 
@@ -35,6 +40,8 @@ def app():
 def window(app) -> KuidListerWindow:
     win = KuidListerWindow()
     win.chk_versions.setChecked(False)
+    win.chk_append.setChecked(DEFAULT_APPEND)
+    win.chk_copy.setChecked(DEFAULT_COPY)
     win.input.clear()
     win.output.clear()
     return win
@@ -99,7 +106,7 @@ def test_the_steppers_move_within_the_range(window):
 # the button with a valid limit
 # ---------------------------------------------------------------------------
 
-def test_the_button_lists_and_copies_the_result(window, monkeypatch):
+def test_the_button_lists_and_copies_when_copy_is_on(window, monkeypatch):
     # The real system clipboard is shared with the rest of the desktop and is
     # flaky to read back inside a test run (Qt commits it from the event loop,
     # and pytest holds the Windows clipboard itself), so capture what the app
@@ -108,6 +115,7 @@ def test_the_button_lists_and_copies_the_result(window, monkeypatch):
     monkeypatch.setattr(
         QApplication.clipboard(), "setText", lambda text: copied.append(text)
     )
+    window.chk_copy.setChecked(True)
     window.input.setPlainText("<kuid:1234:12345> again <kuid:1234:12345>")
 
     window.on_list()
@@ -115,6 +123,21 @@ def test_the_button_lists_and_copies_the_result(window, monkeypatch):
     assert window.output.toPlainText() == "<kuid:1234:12345>"
     assert copied == ["<kuid:1234:12345>"]
     assert window.status.text().startswith("Listed 1 KUIDs in")
+
+
+def test_the_button_lists_without_copying_when_copy_is_off(window, monkeypatch):
+    """Copy off: the result is shown but nothing reaches the clipboard."""
+    copied: list[str] = []
+    monkeypatch.setattr(
+        QApplication.clipboard(), "setText", lambda text: copied.append(text)
+    )
+    window.chk_copy.setChecked(False)
+    window.input.setPlainText("<kuid:1234:12345>")
+
+    window.on_list()
+
+    assert window.output.toPlainText() == "<kuid:1234:12345>"  # still listed
+    assert copied == []  # ... but never copied
 
 
 def test_the_checkbox_generates_one_version_run_per_asset(window):
@@ -204,6 +227,60 @@ def test_clear_empties_the_input(window):
 
 
 # ---------------------------------------------------------------------------
+# the Paste button with its Append checkbox
+# ---------------------------------------------------------------------------
+
+class _FakeClipboard:
+    """Stand in for the system clipboard so a paste test needs no real one."""
+
+    def __init__(self, text):
+        self._text = text
+
+    def text(self):
+        return self._text
+
+
+def _paste(window, monkeypatch, clip_text):
+    monkeypatch.setattr("kuidlister.gui.QApplication.clipboard", lambda: _FakeClipboard(clip_text))
+    window.btn_paste.click()
+
+
+def test_the_checkboxes_start_at_their_defaults(window):
+    assert window.chk_append.isChecked() is DEFAULT_APPEND
+    assert window.chk_copy.isChecked() is DEFAULT_COPY
+
+
+def test_paste_appends_when_append_is_on(window, monkeypatch):
+    window.chk_append.setChecked(True)
+    window.input.setPlainText("<kuid:1:1>")
+
+    _paste(window, monkeypatch, "<kuid:2:2>")
+
+    assert window.input.toPlainText() == "<kuid:1:1>\n<kuid:2:2>"
+
+
+def test_paste_replaces_when_append_is_off(window, monkeypatch):
+    window.chk_append.setChecked(False)
+    window.input.setPlainText("<kuid:1:1>")
+
+    _paste(window, monkeypatch, "<kuid:2:2>")
+
+    assert window.input.toPlainText() == "<kuid:2:2>"
+
+
+def test_a_dropped_file_replaces_when_append_is_off(window, tmp_path):
+    """The Append checkbox also governs drops, not just pastes."""
+    window.chk_append.setChecked(False)
+    window.input.setPlainText("<kuid:1:1>")
+    file = tmp_path / "more.txt"
+    file.write_text("<kuid:2:2>", encoding="utf-8")
+
+    _drop(window, _mime_for([str(file)]))
+
+    assert window.input.toPlainText() == "<kuid:2:2>"
+
+
+# ---------------------------------------------------------------------------
 # dragging an external file onto the window loads it into the input box
 # ---------------------------------------------------------------------------
 
@@ -251,7 +328,8 @@ def test_dropping_a_file_loads_its_contents(window, tmp_path):
 
 
 def test_a_dropped_file_appends_to_existing_input(window, tmp_path):
-    """Like Append paste, a drop adds to what is already there."""
+    """With Append on (the default), a drop adds to what is already there."""
+    window.chk_append.setChecked(True)
     window.input.setPlainText("<kuid:1:1>")
     file = tmp_path / "more.txt"
     file.write_text("<kuid:2:2>", encoding="utf-8")
