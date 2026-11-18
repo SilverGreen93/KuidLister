@@ -135,7 +135,7 @@ class KuidListerWindow(QWidget):
         # the old QLineEdit with a VersionValidator had to do by hand
         self.spin_upto.setRange(0, MAX_VERSION)
         self.spin_upto.setValue(DEFAULT_UPTO)
-        self.spin_upto.setFixedWidth(64)
+        self.spin_upto.setFixedWidth(84)
         self.chk_versions.toggled.connect(self.spin_upto.setEnabled)
         self.spin_upto.setEnabled(self.chk_versions.isChecked())
         options.addWidget(self.btn_list)
