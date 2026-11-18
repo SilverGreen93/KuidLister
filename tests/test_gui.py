@@ -28,6 +28,7 @@ from kuidlister.gui import (
     KuidListerWindow,
 )
 from kuidlister.kuids import MAX_VERSION
+from kuidlister import settings
 
 
 @pytest.fixture(scope="module")
@@ -38,7 +39,19 @@ def app():
 
 
 @pytest.fixture
-def window(app) -> KuidListerWindow:
+def window(app, tmp_path, monkeypatch) -> KuidListerWindow:
+    # keep every window in the suite off the real settings file: point the
+    # config dir at a throwaway dir and reset the options to their defaults, so
+    # one test's saved values never leak into the next (or into the profile)
+    _isolate_settings(monkeypatch, tmp_path)
+    settings.save(
+        {
+            settings.KEY_APPEND: DEFAULT_APPEND,
+            settings.KEY_COPY: DEFAULT_COPY,
+            settings.KEY_VERSIONS: False,
+            settings.KEY_UPTO: DEFAULT_UPTO,
+        }
+    )
     win = KuidListerWindow()
     win.chk_versions.setChecked(False)
     win.chk_append.setChecked(DEFAULT_APPEND)
@@ -249,6 +262,45 @@ def _paste(window, monkeypatch, clip_text):
 def test_the_checkboxes_start_at_their_defaults(window):
     assert window.chk_append.isChecked() is DEFAULT_APPEND
     assert window.chk_copy.isChecked() is DEFAULT_COPY
+
+
+# ---------------------------------------------------------------------------
+# the options are remembered between runs
+# ---------------------------------------------------------------------------
+
+def _isolate_settings(monkeypatch, tmp_path):
+    """Point the settings file at a temp dir so tests never touch the profile."""
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setattr(settings.Path, "home", lambda: tmp_path)
+
+
+def test_changing_an_option_saves_it(window, monkeypatch, tmp_path):
+    _isolate_settings(monkeypatch, tmp_path)
+
+    window.chk_append.setChecked(False)
+    window.chk_versions.setChecked(True)
+    window.spin_upto.setValue(33)
+
+    saved = settings.load(window._defaults())
+    assert saved[settings.KEY_APPEND] is False
+    assert saved[settings.KEY_VERSIONS] is True
+    assert saved[settings.KEY_UPTO] == 33
+
+
+def test_a_new_window_reopens_with_the_saved_options(monkeypatch, tmp_path):
+    """Save from one window, and the next one starts with those values."""
+    _isolate_settings(monkeypatch, tmp_path)
+
+    first = KuidListerWindow()
+    first.chk_copy.setChecked(False)
+    first.chk_versions.setChecked(True)
+    first.spin_upto.setValue(5)
+
+    second = KuidListerWindow()
+    assert second.chk_copy.isChecked() is False
+    assert second.chk_versions.isChecked() is True
+    assert second.spin_upto.value() == 5
 
 
 def test_the_input_hints_with_a_placeholder(window):

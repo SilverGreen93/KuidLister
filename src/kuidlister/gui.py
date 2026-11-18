@@ -33,7 +33,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from . import __version__
+from . import __version__, settings
 from .kuids import (
     MAX_VERSION,
     dedupe,
@@ -54,6 +54,8 @@ DEFAULT_UPTO = 10
 # always-copy behaviour so nothing surprises a returning user
 DEFAULT_APPEND = True
 DEFAULT_COPY = True
+# the version checkbox starts on, but its state is only remembered between runs
+DEFAULT_VERSIONS = False
 INPUT_PLACEHOLDER = (
     "Paste copied KUIDs here or drag & drop a file to load the KUIDs from."
 )
@@ -92,7 +94,19 @@ class KuidListerWindow(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self._running = False
+        # start from whatever the last run left, falling back to the defaults
+        self._settings = settings.load(self._defaults())
         self._build()
+
+    @staticmethod
+    def _defaults() -> dict:
+        """The option values used when nothing is saved yet."""
+        return {
+            settings.KEY_APPEND: DEFAULT_APPEND,
+            settings.KEY_COPY: DEFAULT_COPY,
+            settings.KEY_VERSIONS: DEFAULT_VERSIONS,
+            settings.KEY_UPTO: DEFAULT_UPTO,
+        }
 
     # -- layout -------------------------------------------------------------
     def _build(self) -> None:
@@ -110,7 +124,7 @@ class KuidListerWindow(QWidget):
         buttons.setSpacing(4)
         self.btn_paste = QPushButton("Paste")
         self.chk_append = QCheckBox("Append")
-        self.chk_append.setChecked(DEFAULT_APPEND)
+        self.chk_append.setChecked(self._settings[settings.KEY_APPEND])
         self.btn_clear = QPushButton("Clear")
         for button in (self.btn_paste, self.btn_clear):
             button.setMinimumSize(90, 30)
@@ -129,14 +143,15 @@ class KuidListerWindow(QWidget):
         self.btn_list = QPushButton("List")
         self.btn_list.setMinimumSize(90, 30)
         self.chk_copy = QCheckBox("Copy")
-        self.chk_copy.setChecked(DEFAULT_COPY)
+        self.chk_copy.setChecked(self._settings[settings.KEY_COPY])
         self.chk_versions = QCheckBox("Generate asset versions up to:")
+        self.chk_versions.setChecked(self._settings[settings.KEY_VERSIONS])
         self.spin_upto = QSpinBox()
         # a spin box is clamped to its range, so it can only ever hold a value
         # from 0 to MAX_VERSION -- no separate validator or warning needed, which
         # the old QLineEdit with a VersionValidator had to do by hand
         self.spin_upto.setRange(0, MAX_VERSION)
-        self.spin_upto.setValue(DEFAULT_UPTO)
+        self.spin_upto.setValue(self._settings[settings.KEY_UPTO])
         self.spin_upto.setFixedWidth(84)
         self.chk_versions.toggled.connect(self.spin_upto.setEnabled)
         self.spin_upto.setEnabled(self.chk_versions.isChecked())
@@ -169,6 +184,13 @@ class KuidListerWindow(QWidget):
         self.btn_paste.clicked.connect(self.on_paste)
         self.btn_clear.clicked.connect(self.on_clear)
         self.btn_list.clicked.connect(self.on_list)
+
+        # every option change is written back to the settings file at once, so
+        # a value survives even if the app is killed rather than closed nicely
+        self.chk_append.toggled.connect(self._save_settings)
+        self.chk_copy.toggled.connect(self._save_settings)
+        self.chk_versions.toggled.connect(self._save_settings)
+        self.spin_upto.valueChanged.connect(self._save_settings)
 
         # accept file drops anywhere on the window; the text boxes are
         # DropForwardEdit so a drop landing on one still reaches us (see there)
@@ -310,6 +332,21 @@ class KuidListerWindow(QWidget):
         if not self.chk_versions.isChecked():
             return None
         return self.spin_upto.value()
+
+    # -- settings -----------------------------------------------------------
+    def _current_settings(self) -> dict:
+        """Snapshot the four persisted options from the current widgets."""
+        return {
+            settings.KEY_APPEND: self.chk_append.isChecked(),
+            settings.KEY_COPY: self.chk_copy.isChecked(),
+            settings.KEY_VERSIONS: self.chk_versions.isChecked(),
+            settings.KEY_UPTO: self.spin_upto.value(),
+        }
+
+    def _save_settings(self, *_ignored) -> None:
+        """Write the current options out; the signal argument is unused."""
+        self._settings = self._current_settings()
+        settings.save(self._settings)
 
 
 def run_gui() -> int:
