@@ -4,7 +4,9 @@
 
 Utility for generating lists of Trainz KUIDs.
 
-Paste a copy from Trainz Content Manager, and the app collects every kuid mention, drops the duplicates and hands back one comma separated list, ready to paste into a Download Center search or a `content-manage` command line.
+![screenshot](assets/screenshot.png)
+
+Paste a copy from Trainz Content Manager, and the app collects every kuid mention, drops the duplicates and hands back one comma separated list, ready to paste into a Download Center search or a Content Manager kuid list filter.
 
 ## Getting Started
 
