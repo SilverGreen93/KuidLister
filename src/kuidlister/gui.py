@@ -141,6 +141,10 @@ class KuidListerWindow(QWidget):
         self.btn_clear.clicked.connect(self.on_clear)
         self.btn_list.clicked.connect(self.on_list)
 
+        # the input box is a child widget and forwards drops it does not handle
+        # to us, so accepting them on the window covers the whole surface
+        self.setAcceptDrops(True)
+
     # -- actions ------------------------------------------------------------
     def on_append_paste(self) -> None:
         """Add the clipboard to the end of the input, as Append paste did."""
@@ -150,6 +154,72 @@ class KuidListerWindow(QWidget):
 
     def on_clear(self) -> None:
         self.input.clear()
+
+    # -- drag and drop ------------------------------------------------------
+    @staticmethod
+    def _file_urls(event) -> list[str]:
+        """Local file paths carried by a drag, empty if it carries none.
+
+        Only files already on disk count; a URL dragged from a browser or plain
+        text is not something we can read, so it is ignored and the drop refused.
+        """
+        data = event.mimeData()
+        if not data.hasUrls():
+            return []
+        paths: list[str] = []
+        for url in data.urls():
+            if url.isLocalFile():
+                paths.append(url.toLocalFile())
+        return paths
+
+    def dragEnterEvent(self, event) -> None:  # noqa: N802 (Qt name)
+        """Offer to accept the drag only when it carries at least one file."""
+        if self._file_urls(event):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event) -> None:  # noqa: N802 (Qt name)
+        """Keep accepting while the pointer moves over the window.
+
+        Without this Qt drops the highlight after the first enter and refuses
+        the release even though dragEnter accepted it.
+        """
+        if self._file_urls(event):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event) -> None:  # noqa: N802 (Qt name)
+        """Load every dropped file into the input box."""
+        paths = self._file_urls(event)
+        if not paths:
+            event.ignore()
+            return
+        loaded = [name for name in (self._load_file(path) for path in paths) if name]
+        event.acceptProposedAction()
+        if len(loaded) == 1:
+            self.status.setText(f"Loaded {loaded[0]}.")
+        elif loaded:
+            self.status.setText(f"Loaded {len(loaded)} files.")
+
+    def _load_file(self, path: str) -> str:
+        """Append one file's contents to the input; return its display name.
+
+        Read as UTF-8 with undecodable bytes replaced rather than raising, since
+        CM copy text is usually plain but a stray BOM or code page should not
+        lose the rest of the file.  A path that is not a readable file (gone, or
+        a folder) reports the problem instead of loading nothing silently.
+        """
+        name = Path(path).name
+        try:
+            text = Path(path).read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            self.status.setText(f"Could not read {name}: {exc.strerror}.")
+            return ""
+        if text:
+            self.input.appendPlainText(text)
+        return name
 
     def on_list(self) -> None:
         """List the kuids, copy the result and report how long it took."""

@@ -9,12 +9,16 @@ only about the widgets around it -- what the spin box holds, how it clamps to
 
 from __future__ import annotations
 
+import tempfile
 import time
+from pathlib import Path
 
 import pytest
 
 pytest.importorskip("PyQt6")
 
+from PyQt6.QtCore import QMimeData, QPointF, Qt, QUrl
+from PyQt6.QtGui import QDropEvent, QDragEnterEvent, QDragMoveEvent
 from PyQt6.QtWidgets import QApplication
 
 from kuidlister.gui import DEFAULT_UPTO, KuidListerWindow
@@ -198,3 +202,140 @@ def test_clear_empties_the_input(window):
     window.input.setPlainText("<kuid:1:2>")
     window.btn_clear.click()
     assert window.input.toPlainText() == ""
+
+
+# ---------------------------------------------------------------------------
+# dragging an external file onto the window loads it into the input box
+# ---------------------------------------------------------------------------
+
+def _mime_for(paths):
+    """A QMimeData carrying local-file URLs, as a real file drop would."""
+    mime = QMimeData()
+    mime.setUrls([QUrl.fromLocalFile(p) for p in paths])
+    return mime
+
+
+def _mid(window) -> QPointF:
+    """The centre of the window as a QPointF (the events need float points)."""
+    c = window.rect().center()
+    return QPointF(c.x(), c.y())
+
+
+def _drop(window, mime):
+    """Run the window's dropEvent with a synthetic event over its centre.
+
+    The event does not own its QMimeData, so keep a reference to it alive for
+    the whole call; letting it be collected mid-event crashes Qt.
+    """
+    event = QDropEvent(
+        _mid(window),
+        Qt.DropAction.CopyAction,
+        mime,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    try:
+        window.dropEvent(event)
+    finally:
+        del mime  # outlived the event, safe to release now
+    return event
+
+
+def test_dropping_a_file_loads_its_contents(window, tmp_path):
+    file = tmp_path / "kuids.txt"
+    file.write_text("<kuid:1234:12345> and <kuid:6:7>", encoding="utf-8")
+
+    _drop(window, _mime_for([str(file)]))
+
+    assert window.input.toPlainText() == "<kuid:1234:12345> and <kuid:6:7>"
+    assert "kuids.txt" in window.status.text()
+
+
+def test_a_dropped_file_appends_to_existing_input(window, tmp_path):
+    """Like Append paste, a drop adds to what is already there."""
+    window.input.setPlainText("<kuid:1:1>")
+    file = tmp_path / "more.txt"
+    file.write_text("<kuid:2:2>", encoding="utf-8")
+
+    _drop(window, _mime_for([str(file)]))
+
+    assert window.input.toPlainText() == "<kuid:1:1>\n<kuid:2:2>"
+
+
+def test_dropping_several_files_loads_them_all(window, tmp_path):
+    a = tmp_path / "a.txt"
+    b = tmp_path / "b.txt"
+    a.write_text("<kuid:1:1>", encoding="utf-8")
+    b.write_text("<kuid:2:2>", encoding="utf-8")
+
+    _drop(window, _mime_for([str(a), str(b)]))
+
+    assert window.input.toPlainText() == "<kuid:1:1>\n<kuid:2:2>"
+    assert "2 files" in window.status.text()
+
+
+def test_a_non_utf8_file_still_loads(tmp_path, app):
+    """Undecodable bytes are replaced rather than losing the whole file."""
+    window = KuidListerWindow()
+    file = tmp_path / "cp1252.txt"
+    file.write_bytes(b"<kuid:1:2> caf\xe9")  # \xe9 is invalid UTF-8
+
+    _drop(window, _mime_for([str(file)]))
+
+    loaded = window.input.toPlainText()
+    assert "<kuid:1:2>" in loaded
+    assert "\ufffd" in loaded  # the bad byte became the replacement char
+
+
+def test_a_missing_file_is_reported_and_adds_nothing(window):
+    """A local-file URL for a path that is not there cannot be read."""
+    missing = str(Path(tempfile.gettempdir()) / "kuidlister-does-not-exist.txt")
+
+    _drop(window, _mime_for([missing]))
+
+    assert window.input.toPlainText() == ""
+    assert "could not read" in window.status.text().lower()
+
+
+def test_a_drag_with_no_files_is_refused(window):
+    """Text or a web URL is not a file we can read, so the drop is ignored."""
+    mime = QMimeData()
+    mime.setText("<kuid:1:2>")
+
+    enter = QDragEnterEvent(
+        _mid(window), Qt.DropAction.CopyAction, mime,
+        Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+    )
+    window.dragEnterEvent(enter)
+    assert not enter.isAccepted()
+
+    drop = QDropEvent(
+        _mid(window), Qt.DropAction.CopyAction, mime,
+        Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+    )
+    window.dropEvent(drop)
+    del mime  # the events borrow it; keep it alive until they are done
+    assert window.input.toPlainText() == ""
+
+
+def test_a_drag_carrying_a_file_is_accepted(window, tmp_path):
+    file = tmp_path / "kuids.txt"
+    file.write_text("<kuid:1:2>", encoding="utf-8")
+
+    enter_mime = _mime_for([str(file)])
+    enter = QDragEnterEvent(
+        _mid(window), Qt.DropAction.CopyAction, enter_mime,
+        Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+    )
+    window.dragEnterEvent(enter)
+    assert enter.isAccepted()
+
+    move_mime = _mime_for([str(file)])
+    move = QDragMoveEvent(
+        _mid(window), Qt.DropAction.CopyAction, move_mime,
+        Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+    )
+    window.dragMoveEvent(move)
+    assert move.isAccepted()
+    del enter_mime, move_mime
+
