@@ -35,6 +35,18 @@ type cm-copy.txt | kuidlistercli.exe --upto 10 > kuids.txt
 
 `--upto <n>` does what the GUI's "Generate asset versions up to" checkbox does: every kuid is replaced by its versions from 0 to n (n between 0 and 127). The exit status is 0 when something was listed, 1 when the input held no kuid and 2 when the version limit was out of range.
 
+## Settings
+
+The GUI remembers the Append and Copy checkboxes, the "Generate asset versions" checkbox and its number, and reopens with them next time. They are stored in a small `settings.json` file in the per-user configuration directory:
+
+| Platform | Location |
+| --- | --- |
+| Windows | `%APPDATA%\Kuid Lister\settings.json` |
+| Linux | `$XDG_CONFIG_HOME/Kuid Lister/settings.json`, or `~/.config/Kuid Lister/settings.json` if that variable is unset |
+| macOS | `~/Library/Application Support/Kuid Lister/settings.json` |
+
+The file is written as soon as an option changes, and a missing or damaged one simply falls back to the defaults. The command line tool keeps none of its own state; pass `--upto` on each run.
+
 ## Issues and Feature requests
 
 For any bugs, issues or feature requests, use the Issues tab in GitHub.
