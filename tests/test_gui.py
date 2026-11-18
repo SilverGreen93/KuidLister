@@ -20,7 +20,6 @@ pytest.importorskip("PyQt6")
 from PyQt6.QtCore import QMimeData, QPointF, Qt, QUrl
 from PyQt6.QtGui import QDropEvent, QDragEnterEvent, QDragMoveEvent
 from PyQt6.QtWidgets import QApplication
-
 from kuidlister.gui import DEFAULT_UPTO, KuidListerWindow
 from kuidlister.kuids import MAX_VERSION
 
@@ -338,4 +337,48 @@ def test_a_drag_carrying_a_file_is_accepted(window, tmp_path):
     window.dragMoveEvent(move)
     assert move.isAccepted()
     del enter_mime, move_mime
+
+
+def test_the_text_boxes_refuse_url_drops(window, tmp_path):
+    """The boxes must not swallow a file drop themselves.
+
+    A plain QPlainTextEdit accepts url data and inserts the file path as text,
+    which is exactly what beat the window handler when a file was dropped on the
+    input box.  canInsertFromMimeData returning False for urls makes the widget
+    ignore the drag so it falls through to KuidListerWindow.dropEvent instead.
+    """
+    file = tmp_path / "kuids.txt"
+    file.write_text("<kuid:1:2>", encoding="utf-8")
+
+    mime = _mime_for([str(file)])
+    assert not window.input.canInsertFromMimeData(mime)
+    assert not window.output.canInsertFromMimeData(mime)
+    del mime
+
+
+def test_the_text_boxes_still_accept_plain_text_drops(window):
+    """Refusing urls must not break the normal internal text drag/select."""
+    mime = QMimeData()
+    mime.setText("<kuid:5:5>")
+
+    assert window.input.canInsertFromMimeData(mime)
+    del mime
+
+
+def test_a_drop_on_the_input_box_is_read_by_the_window(window, tmp_path):
+    """End-to-end for the reported bug: drop on the input box loads contents.
+
+    The box refuses the url (previous test), so the window's handler runs and
+    reads the file -- the input ends up with the contents, never the path.
+    """
+    file = tmp_path / "kuids.txt"
+    file.write_text("<kuid:1234:12345>", encoding="utf-8")
+
+    mime = _mime_for([str(file)])
+    assert not window.input.canInsertFromMimeData(mime)  # box declines it
+    _drop(window, mime)  # ... so the window reads it
+
+    text = window.input.toPlainText()
+    assert text == "<kuid:1234:12345>"
+    assert str(file) not in text
 

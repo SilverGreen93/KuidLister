@@ -52,6 +52,22 @@ ICON_FILE = "kuidlister.ico"
 DEFAULT_UPTO = 10
 
 
+class DropForwardEdit(QPlainTextEdit):
+    """A text box that lets file drops fall through to the window.
+
+    QPlainTextEdit handles a URL drop itself and inserts the file's path as
+    text, which would beat the window's own handler when the drop lands on this
+    box.  Refusing url data here makes the widget ignore those drags, so they
+    reach :meth:`KuidListerWindow.dropEvent` and the file is read instead.
+    Ordinary text drops (dragging a selection inside the app) still work.
+    """
+
+    def canInsertFromMimeData(self, source) -> bool:  # noqa: N802 (Qt name)
+        if source.hasUrls():
+            return False
+        return super().canInsertFromMimeData(source)
+
+
 def _window_icon() -> QIcon | None:
     """The app icon, if it can be found next to the code or in the bundle.
 
@@ -96,7 +112,7 @@ class KuidListerWindow(QWidget):
         buttons.addWidget(self.btn_clear)
         outer.addLayout(buttons)
 
-        self.input = QPlainTextEdit()
+        self.input = DropForwardEdit()
         outer.addWidget(self.input, 1)
 
         options = QHBoxLayout()
@@ -119,7 +135,7 @@ class KuidListerWindow(QWidget):
         options.addWidget(self.spin_upto)
         outer.addLayout(options)
 
-        self.output = QPlainTextEdit()
+        self.output = DropForwardEdit()
         self.output.setReadOnly(True)
         outer.addWidget(self.output, 1)
 
@@ -141,8 +157,8 @@ class KuidListerWindow(QWidget):
         self.btn_clear.clicked.connect(self.on_clear)
         self.btn_list.clicked.connect(self.on_list)
 
-        # the input box is a child widget and forwards drops it does not handle
-        # to us, so accepting them on the window covers the whole surface
+        # accept file drops anywhere on the window; the text boxes are
+        # DropForwardEdit so a drop landing on one still reaches us (see there)
         self.setAcceptDrops(True)
 
     # -- actions ------------------------------------------------------------
