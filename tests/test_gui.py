@@ -24,6 +24,7 @@ from kuidlister.gui import (
     DEFAULT_APPEND,
     DEFAULT_COPY,
     DEFAULT_UPTO,
+    INPUT_PLACEHOLDER,
     KuidListerWindow,
 )
 from kuidlister.kuids import MAX_VERSION
@@ -248,6 +249,14 @@ def _paste(window, monkeypatch, clip_text):
 def test_the_checkboxes_start_at_their_defaults(window):
     assert window.chk_append.isChecked() is DEFAULT_APPEND
     assert window.chk_copy.isChecked() is DEFAULT_COPY
+
+
+def test_the_input_hints_with_a_placeholder(window):
+    """The prompt lives in the box as placeholder text, not a separate label."""
+    assert window.input.placeholderText() == INPUT_PLACEHOLDER
+    # the placeholder only shows while empty; typing hides it as normal
+    window.input.setPlainText("<kuid:1:2>")
+    assert "Paste copied KUIDs" not in window.input.toPlainText()
 
 
 def test_paste_appends_when_append_is_on(window, monkeypatch):

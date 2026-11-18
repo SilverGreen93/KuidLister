@@ -1,10 +1,10 @@
 """PyQt6 GUI for Kuid Lister.
 
 A fixed-size portrait window, laid out top to bottom like the original form:
-the label asking for pasted content, Paste (with an Append checkbox) / Clear,
-the input box, the List button next to a Copy checkbox and the "Generate asset
-versions up to" checkbox and its number, the read-only result box, the status
-line and the copyright/GitHub footer.
+Paste (with an Append checkbox) / Clear, the input box (whose placeholder tells
+the user to paste or drop a file), the List button next to a Copy checkbox and
+the "Generate asset versions up to" checkbox and its number, the read-only
+result box, the status line and the copyright/GitHub footer.
 
 All the work happens in :mod:`kuidlister.kuids`; this module only moves text
 between the widgets and reports how long it took.  The original drove its
@@ -54,6 +54,9 @@ DEFAULT_UPTO = 10
 # always-copy behaviour so nothing surprises a returning user
 DEFAULT_APPEND = True
 DEFAULT_COPY = True
+INPUT_PLACEHOLDER = (
+    "Paste copied KUIDs here or drag & drop a file to load the KUIDs from."
+)
 
 
 class DropForwardEdit(QPlainTextEdit):
@@ -103,8 +106,6 @@ class KuidListerWindow(QWidget):
         outer.setContentsMargins(12, 8, 12, 8)
         outer.setSpacing(6)
 
-        outer.addWidget(QLabel("Paste KUIDs copied from Content Manager here:"))
-
         buttons = QHBoxLayout()
         buttons.setSpacing(4)
         self.btn_paste = QPushButton("Paste")
@@ -120,6 +121,7 @@ class KuidListerWindow(QWidget):
         outer.addLayout(buttons)
 
         self.input = DropForwardEdit()
+        self.input.setPlaceholderText(INPUT_PLACEHOLDER)
         outer.addWidget(self.input, 1)
 
         options = QHBoxLayout()
