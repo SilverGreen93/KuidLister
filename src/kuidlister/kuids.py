@@ -13,9 +13,9 @@ version run is asked for (``upto``), so each asset expands exactly once.
 
 The original ran over the whole text twice (once for the matches, once to
 strip duplicates) and drove a progress bar with three passes; :func:`extract_kuids`
-and :func:`list_kuids` keep those two stages apart so the GUI can report
-progress between them, and each pass is a single ordered sweep instead of the
-original's quadratic duplicate search.
+and :func:`list_kuids` keep those two stages apart so the GUI can reuse each on
+its own, and each pass is a single ordered sweep instead of the original's
+quadratic duplicate search.
 """
 
 from __future__ import annotations

@@ -3,14 +3,13 @@
 A fixed-size portrait window, laid out top to bottom like the original form:
 the label asking for pasted content, Append paste / Clear, the input box, the
 List & Copy button next to the "Generate asset versions up to" checkbox and
-its number, the read-only result box, the status line, the progress bar and
-the copyright/GitHub footer.
+its number, the read-only result box, the status line and the copyright/GitHub
+footer.
 
 All the work happens in :mod:`kuidlister.kuids`; this module only moves text
 between the widgets and reports how long it took.  The original drove its
-progress bar with three ``Application.DoEvents()`` loops; here the two stages
-are separated by one event-loop turn, which is enough to keep the window
-repainting on a large paste.
+progress bar with three ``Application.DoEvents()`` loops; parsing is fast enough
+that no progress reporting is needed, so the listing runs straight through.
 """
 
 from __future__ import annotations
@@ -30,7 +29,6 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPlainTextEdit,
-    QProgressBar,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -102,7 +100,7 @@ class KuidListerWindow(QWidget):
         icon = _window_icon()
         if icon:
             self.setWindowIcon(icon)
-        self.setFixedSize(470, 511)  # the original's fixed ClientSize
+        self.setFixedSize(470, 481)  # the original's ClientSize minus its progress bar
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(12, 8, 12, 8)
@@ -150,10 +148,6 @@ class KuidListerWindow(QWidget):
         self.status = QLabel("Ready.")
         outer.addWidget(self.status)
 
-        self.progress = QProgressBar()
-        self.progress.setTextVisible(False)
-        outer.addWidget(self.progress)
-
         footer = QHBoxLayout()
         label = QLabel("\u00a9 2024 SilverGreen93")
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -192,18 +186,10 @@ class KuidListerWindow(QWidget):
         try:
             text = self.input.toPlainText()
 
-            # stage 1: find and dedupe, then let the window repaint before the
-            # (potentially much longer) version expansion
-            self.progress.setMaximum(2)
-            self.progress.setValue(0)
+            # find and dedupe, then rebuild each kuid -- with its versions when
+            # asked for.  The listing is a single straight pass: parsing is fast
+            # enough that no progress reporting (or event-loop turn) is needed.
             unique = dedupe(extract_kuids(text))
-            self.progress.setValue(1)
-            QApplication.processEvents()
-
-            # stage 2: rebuild each kuid, with its versions when asked for.
-            # list_kuids is the single place that decides how a token is shown
-            # (version kept without upto, one version run per pair with it), so
-            # the GUI and the CLI can never drift apart.
             if upto is None:
                 tokens = [format_token(kuid) for kuid in unique]
             else:
@@ -211,7 +197,6 @@ class KuidListerWindow(QWidget):
                 for kuid in unique:
                     pairs.setdefault(split_kuid(kuid), kuid)
                 tokens = expand_versions(list(pairs.values()), upto)
-            self.progress.setValue(2)
 
             result = join(tokens)
             self.output.setPlainText(result)
@@ -227,7 +212,6 @@ class KuidListerWindow(QWidget):
             self.status.setText(f"Listed {len(tokens)} KUIDs in {elapsed_ms:.0f} ms.")
         finally:
             self._running = False
-            self.progress.setValue(0)
 
     def _upto(self) -> int | None:
         """The version limit of the checkbox, or None when it is off.
