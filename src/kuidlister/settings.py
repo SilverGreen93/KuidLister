@@ -2,9 +2,9 @@
 
 The three checkboxes (Append, Copy, Generate asset versions) and the "up to"
 number are stored as a small JSON file in the platform's config directory:
-``%APPDATA%\\Kuid Lister`` on Windows, ``~/.config/Kuid Lister`` on Linux
-(honouring ``$XDG_CONFIG_HOME``), and ``~/Library/Application Support/Kuid
-Lister`` on macOS.  The directory is computed by hand rather than pulled from a
+``%APPDATA%\\KuidLister`` on Windows, ``~/.config/KuidLister`` on Linux
+(honouring ``$XDG_CONFIG_HOME``), and ``~/Library/Application Support/KuidLister``
+on macOS.  The directory is computed by hand rather than pulled from a
 library like platformdirs, to keep the package dependency-free.
 
 Reading is forgiving: a missing, unreadable or malformed file just yields the
@@ -20,7 +20,7 @@ import os
 import sys
 from pathlib import Path
 
-APP_DIR_NAME = "Kuid Lister"
+APP_DIR_NAME = "KuidLister"
 SETTINGS_FILE = "settings.json"
 
 # keys written to / read from the JSON, and the value used when one is absent

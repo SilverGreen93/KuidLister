@@ -43,9 +43,9 @@ The GUI remembers the Append and Copy checkboxes, the "Generate asset versions" 
 
 | Platform | Location |
 | --- | --- |
-| Windows | `%APPDATA%\Kuid Lister\settings.json` |
-| Linux | `$XDG_CONFIG_HOME/Kuid Lister/settings.json`, or `~/.config/Kuid Lister/settings.json` if that variable is unset |
-| macOS | `~/Library/Application Support/Kuid Lister/settings.json` |
+| Windows | `%APPDATA%\KuidLister\settings.json` |
+| Linux | `$XDG_CONFIG_HOME/KuidLister/settings.json`, or `~/.config/KuidLister/settings.json` if that variable is unset |
+| macOS | `~/Library/Application Support/KuidLister/settings.json` |
 
 The file is written as soon as an option changes, and a missing or damaged one simply falls back to the defaults. The command line tool keeps none of its own state; pass `--upto` on each run.
 
